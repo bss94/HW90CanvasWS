@@ -9,7 +9,6 @@ const App = () => {
   const [coordinates, setCoordinates] = useState<Coordinates[]>([]);
   const [newCoordinates, setNewCoordinates] = useState<Coordinates[]>([]);
   const [color, setColor] = useState<string>('#000000');
-
   useEffect(() => {
     ws.current = new WebSocket(`ws://localhost:8000/canvas`);
     ws.current.onclose = () => console.log('WS disconnected');
@@ -17,15 +16,26 @@ const App = () => {
       const decodedMessages = JSON.parse(event.data) as IncomingMessage;
       if (decodedMessages.type === 'NEW_COORDINATE') {
         setCoordinates((prevState) => [...prevState, ...decodedMessages.payload]);
-      }else if (decodedMessages.type === 'OLD_COORDINATE') {
+      } else if (decodedMessages.type === 'OLD_COORDINATE') {
+        setCoordinates([...decodedMessages.payload]);
+      }
+      else if (decodedMessages.type === 'RESET_COORDINATE') {
         setCoordinates([...decodedMessages.payload]);
       }
     };
+    setTimeout(()=>{
+      if (!ws.current) {
+        return;
+      }
+      ws.current.send((JSON.stringify({
+        type: 'GET_COORDINATES',
+        payload: [],
+      })));
+    },250)
     return () => {
       ws.current?.close();
     };
   }, []);
-
   useEffect(() => {
     const draw = (ctx: CanvasRenderingContext2D) => {
       ctx.clearRect(0, 0, 200, 200);
@@ -80,9 +90,20 @@ const App = () => {
       }
     }
   };
+  const onResetCoordinates=()=>{
+    if (!ws.current) {
+      return;
+    }
+    ws.current.send((JSON.stringify({
+      type: 'RESET_COORDINATES',
+      payload: [],
+    })));
+    setCoordinates([]);
+  }
   return (
     <div>
       <input type="color" value={color} onChange={onColorChange}/>
+      <button onClick={onResetCoordinates}>RESET</button>
       <canvas ref={canvasRef}
               onMouseOut={onDrawEnd}
               onMouseDown={onDrawStart}
